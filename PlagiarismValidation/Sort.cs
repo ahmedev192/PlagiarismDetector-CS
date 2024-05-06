@@ -5,127 +5,119 @@ namespace PlagiarismValidation
 {
     public class Sort
     {
-        public static void MergeSort<T>(List<T> list, Func<T, double> getKey)
+        public static void MGSort<T>(List<T> lst, Func<T, double> getKey)
         {
-            MergeSort(list, 0, list.Count - 1, getKey);
+            MGSort(lst, 0, lst.Count - 1, getKey);
         }
 
-        private static void MergeSort<T>(List<T> list, int start, int end, Func<T, double> getKey)
-        {
-            if (start < end)
-            {
-                int mid = (start + end) / 2;
-                MergeSort(list, start, mid, getKey);
-                MergeSort(list, mid + 1, end, getKey);
-                Merge(list, start, mid, end, getKey);
-            }
-        }
-
-        private static void Merge<T>(List<T> list, int start, int mid, int end, Func<T, double> getKey)
-        {
-            int n1 = mid - start + 1;
-            int n2 = end - mid;
-
-            List<T> leftList = list.GetRange(start, n1);
-            List<T> rightList = list.GetRange(mid + 1, n2);
-
-            int leftIndex = 0, rightIndex = 0;
-            int currentIndex = start;
-
-            while (leftIndex < n1 && rightIndex < n2)
-            {
-                if (getKey(leftList[leftIndex]) >= getKey(rightList[rightIndex]))
-                {
-                    list[currentIndex] = leftList[leftIndex];
-                    leftIndex++;
-                }
-                else
-                {
-                    list[currentIndex] = rightList[rightIndex];
-                    rightIndex++;
-                }
-                currentIndex++;
-            }
-
-            while (leftIndex < n1)
-            {
-                list[currentIndex] = leftList[leftIndex];
-                leftIndex++;
-                currentIndex++;
-            }
-
-            while (rightIndex < n2)
-            {
-                list[currentIndex] = rightList[rightIndex];
-                rightIndex++;
-                currentIndex++;
-            }
-        }
-
-        public static void MergeSort<T>(List<T> list, IComparer<T> comparer)
-        {
-            MergeSort(list, 0, list.Count - 1, comparer);
-        }
-
-        private static void MergeSort<T>(List<T> list, int start, int end, IComparer<T> comparer)
+        private static void MGSort<T>(List<T> lst, int start, int end, Func<T, double> getKey)
         {
             if (start < end)
             {
                 int mid = (start + end) / 2;
-                MergeSort(list, start, mid, comparer);
-                MergeSort(list, mid + 1, end, comparer);
-                Merge(list, start, mid, end, comparer);
+                MGSort(lst, start, mid, getKey);
+                MGSort(lst, mid + 1, end, getKey);
+                MG(lst, start, mid, end, getKey);
             }
         }
 
-        private static void Merge<T>(List<T> list, int start, int mid, int end, IComparer<T> comparer)
+        private static void MG<T>(List<T> lst, int start, int mid, int end, Func<T, double> getKey)
         {
             int n1 = mid - start + 1;
             int n2 = end - mid;
 
-            List<T> leftList = list.GetRange(start, n1);
-            List<T> rightList = list.GetRange(mid + 1, n2);
+            List<T> leftList = lst.GetRange(start, n1);
+            List<T> rightList = lst.GetRange(mid + 1, n2);
 
-            int leftIndex = 0, rightIndex = 0;
-            int currentIndex = start;
+            int leftIDX = 0, rightIDX = 0;
+            int currentIDX = start;
 
-            while (leftIndex < n1 && rightIndex < n2)
+            while (leftIDX < n1 && rightIDX < n2)
             {
-                if (comparer.Compare(leftList[leftIndex], rightList[rightIndex]) <= 0)
+                if (getKey(leftList[leftIDX]) >= getKey(rightList[rightIDX]))
                 {
-                    list[currentIndex] = leftList[leftIndex];
-                    leftIndex++;
+                    lst[currentIDX] = leftList[leftIDX];
+                    leftIDX++;
                 }
                 else
                 {
-                    list[currentIndex] = rightList[rightIndex];
-                    rightIndex++;
+                    lst[currentIDX] = rightList[rightIDX];
+                    rightIDX++;
                 }
-                currentIndex++;
+                currentIDX++;
             }
 
-            while (leftIndex < n1)
+            while (leftIDX < n1)
             {
-                list[currentIndex] = leftList[leftIndex];
-                leftIndex++;
-                currentIndex++;
+                lst[currentIDX] = leftList[leftIDX];
+                leftIDX++;
+                currentIDX++;
             }
 
-            while (rightIndex < n2)
+            while (rightIDX < n2)
             {
-                list[currentIndex] = rightList[rightIndex];
-                rightIndex++;
-                currentIndex++;
+                lst[currentIDX] = rightList[rightIDX];
+                rightIDX++;
+                currentIDX++;
             }
         }
 
+        public static void MGSort<T>(List<T> lst, IComparer<T> comparer)
+        {
+            MGSort(lst, 0, lst.Count - 1, comparer);
+        }
 
+        private static void MGSort<T>(List<T> lst, int start, int end, IComparer<T> comparer)
+        {
+            if (start < end)
+            {
+                int mid = (start + end) / 2;
+                MGSort(lst, start, mid, comparer);
+                MGSort(lst, mid + 1, end, comparer);
+                MG(lst, start, mid, end, comparer);
+            }
+        }
 
+        private static void MG<T>(List<T> lst, int start, int mid, int end, IComparer<T> comparer)
+        {
+            int n1 = mid - start + 1;
+            int n2 = end - mid;
 
+            List<T> leftList = lst.GetRange(start, n1);
+            List<T> rightList = lst.GetRange(mid + 1, n2);
 
+            int leftIDX = 0, rightIDX = 0;
+            int currentIDX = start;
 
+            while (leftIDX < n1 && rightIDX < n2)
+            {
+                if (comparer.Compare(leftList[leftIDX], rightList[rightIDX]) <= 0)
+                {
+                    lst[currentIDX] = leftList[leftIDX];
+                    leftIDX++;
+                }
+                else
+                {
+                    lst[currentIDX] = rightList[rightIDX];
+                    rightIDX++;
+                }
+                currentIDX++;
+            }
 
+            while (leftIDX < n1)
+            {
+                lst[currentIDX] = leftList[leftIDX];
+                leftIDX++;
+                currentIDX++;
+            }
 
+            while (rightIDX < n2)
+            {
+                lst[currentIDX] = rightList[rightIDX];
+                rightIDX++;
+                currentIDX++;
+            }
+        }
 
 
     }

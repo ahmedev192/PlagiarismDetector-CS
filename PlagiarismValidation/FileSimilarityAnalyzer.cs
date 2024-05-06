@@ -1,123 +1,44 @@
-﻿using System;
-using System.Collections.Generic;
-using System.ComponentModel;
-using System.Data.OleDb;
-using System.Diagnostics;
-using System.Diagnostics.Metrics;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
-
-
+﻿
 
 namespace PlagiarismValidation
 {
     public class FileSimilarityAnalyzer
     {
         //Global Variables That We Need To Access Many Times : 
-        public static List<Entry> entries;
+        public  List<Entry> entries;
         // <<f1num , f2num>  Entry >
-        public static Dictionary<(int, int), Entry> similarityMap;
+        public  Dictionary<(int, int), Entry> similarityMap;
         // <File Number "vertix" , adj list for vertix > 
-        public static Dictionary<int, List<int>> adjacencyList = new Dictionary<int, List<int>>();
-        public static List<Component> groups;
-        public static List<List<Edge>> spanningTree;
-       
+        public  Dictionary<int, List<int>> adjacencyList = new Dictionary<int, List<int>>();
+        public  List<Component> groups;
+        public  List<List<Edge>> spanningTree;
 
-
-
-
-        //Reading Files And Related Functions : 
-        //--------------------------------------------------
-        public static List<Entry> ReadFile(string filePath)
+        public FileSimilarityAnalyzer(string filePath)
         {
-            entries = new List<Entry>();
-            string connection = $"Provider=Microsoft.ACE.OLEDB.12.0;Data Source={filePath};Extended Properties='Excel 12.0;HDR=YES;IMEX=1;'";
-
-            using (OleDbConnection conn = new OleDbConnection(connection))
+            entries = ExcelHelper.ReadFile(filePath);
+            similarityMap = ExcelHelper.InitializeSimDict(entries);
+            FindGroups();
+            Sort.MGSort(groups, component => component.AVGSim);
+            RefineGroups();
+            Func<Edge, double> getKey = edge => edge.MatchLines;
+            foreach (var edgesList in spanningTree)
             {
-                conn.Open();
-                OleDbCommand command = new OleDbCommand("select * from [Sheet1$]", conn);
-
-                using (OleDbDataReader r = command.ExecuteReader())
-                {
-
-                    while (r.Read())
-                    {
-                        Entry entry = new Entry();
-                        entry.F1Name = r[0].ToString();
-                        entry.F2Name = r[1].ToString();
-                        entry.F1Num = GetFileNum(entry.F1Name);
-                        entry.F2Num = GetFileNum(entry.F2Name);
-                        entry.F1Sim = TrimPerFromFIleName(entry.F1Name);
-                        entry.F2Sim = TrimPerFromFIleName(entry.F2Name);
-                        entry.SameLines = int.Parse(r[2].ToString());
-                        entries.Add(entry);
-                    }
-                }
+                Sort.MGSort(edgesList, getKey);
             }
-            Initialize(entries);
-            return entries;
+            string STATPath = "C:\\Users\\ahmed\\OneDrive\\Desktop\\Algo_Project\\PlagiarismValidation\\PlagiarismValidation\\Results\\Stat.xlsx";
+            ExcelHelper.ExportStat(groups, STATPath);
+            string SavingPath = "C:\\Users\\ahmed\\OneDrive\\Desktop\\Algo_Project\\PlagiarismValidation\\PlagiarismValidation\\Results\\MST.xlsx";
+            ExcelHelper.WriteMySpanningTreeToExcel(spanningTree, similarityMap, SavingPath );
+
+
+
         }
 
 
-        static int GetFileNum(string input)
-        {
-            string num = "";
-            int IDX = input.LastIndexOf('/');
-
-            if (IDX != -1)
-            {
-                for (int i = IDX - 1; i >= 0; i--)
-                {
-                    if (char.IsDigit(input[i]))
-                    {
-                        num = input[i] + num;
-                    }
-                    else
-                    {
-                        break;
-                    }
-                }
-            }
-            return int.Parse(num);
-        }
-
-        private static double TrimPerFromFIleName(string fileName)
-        {
-            int firstDigIDX = fileName.LastIndexOf('(') + 1;
-            int len = fileName.LastIndexOf('%') - firstDigIDX;
-            string sim = fileName.Substring(firstDigIDX, len);
-            return double.Parse(sim);
-        }
-
-
-        //Consider this scenario: you have an entry with F1Num = 3 and F2Num = 7.
-        //If you simply use (entry.F1Num, entry.F2Num) as the key, it's possible that in another entry you have F1Num = 7 and F2Num = 3,
-        //which would result in a different key (7, 3). This could lead to inconsistencies when accessing or updating the dictionary
-        //And Also Our Graph Is Undirected So The Same Edge Shouldn't Appear Twice .
-        public static void Initialize(List<Entry> entries)
-        {
-            similarityMap = new Dictionary<(int, int), Entry>();
-            foreach (var entry in entries)
-            {
-                int smallerNum = Math.Min(entry.F1Num, entry.F2Num);
-                int largerNum = Math.Max(entry.F1Num, entry.F2Num);
-
-                var key = (smallerNum, largerNum);
-
-                similarityMap[key] = entry;
-            }
-        }
-
-
-
-        //-----------------------------------------------------------------------------------------------------------------------
-        //-----------------------------------------------------------------------------------------------------------------------
 
 
         // Constructing Graph Functions.
-        public static List<Component> FindGroups()
+        public  List<Component> FindGroups()
         {
             //1. This Part , List All Neighbours For Each Veritx 
             foreach (var e in entries)
@@ -174,7 +95,7 @@ namespace PlagiarismValidation
 
 
         //2. This Function Takes Each Node And It's Adj , It's Rule Is To Collect All Vertices That Have Relation With Each Others Togetger In a Group And Mark The Visited Vertix;
-        private static void DepthSearch(int startNode, Dictionary<int, List<int>> adjacencyList, HashSet<int> visited, List<int> component)
+        private  void DepthSearch(int startNode, Dictionary<int, List<int>> adjacencyList, HashSet<int> visited, List<int> component)
         {
             Stack<int> stack = new Stack<int>();
             stack.Push(startNode);
@@ -207,12 +128,13 @@ namespace PlagiarismValidation
         //-----------------------------------------------------------------------------------------------------------------------
 
 
+
+
         // Refinning And MST.
 
-        public static List<Component> RefineGroups()
+        public  List<Component> RefineGroups()
         {
            spanningTree = new List<List<Edge>>();
-            Sort.MergeSort(groups, component => component.AVGSim);
 
             foreach (var group in groups)
             {
@@ -225,31 +147,14 @@ namespace PlagiarismValidation
 
                 group.Vertices = mstVertices;
             }
-            // Assuming you have a List<List<Edge>> spanningTree
 
-            // Define a custom key function to get the negative of the line matches for each edge
-            Func<Edge, double> getKey = edge => edge.MatchLines;
-
-            // Iterate through each list of edges in spanningTree and sort them based on line matches in descending order
-            foreach (var edgesList in spanningTree)
-            {
-                Sort.MergeSort(edgesList, getKey);
-            }
-
-
-            // Assuming you have a List<List<Edge>> spanningTree and a Dictionary<(int, int), Entry> similarityMap, and a file path to save the Excel file
-            string filePath = "path_to_your_excel_file.xlsx";
-            ExcelHelper.WriteSpanningTreeToExcel(spanningTree, similarityMap, "C:\\Users\\ahmed\\OneDrive\\Desktop\\Algo_Project\\PlagiarismValidation\\PlagiarismValidation\\Results\\MST.xlsx");
-
+        
             return groups;
         }
 
 
 
-
-
-
-        private static Dictionary<int, List<int>> BuildAdjList(List<int> vertices)
+        private  Dictionary<int, List<int>> BuildAdjList(List<int> vertices)
         {
             Dictionary<int, List<int>> adjList = new Dictionary<int, List<int>>();
             foreach (var vertex in vertices)
@@ -268,9 +173,7 @@ namespace PlagiarismValidation
 
 
 
-
-
-        private static List<Edge> FindMST(Dictionary<int, List<int>> adjacencyList)
+        private  List<Edge> FindMST(Dictionary<int, List<int>> adjacencyList)
         {
             List<Edge> edges = new List<Edge>();
 
@@ -284,7 +187,7 @@ namespace PlagiarismValidation
                     edges.Add(new Edge(Math.Min(vertex, neighbor),Math.Max(vertex, neighbor), weight, matchedlines));
                 }
             }
-            Sort.MergeSort(edges, new EdgeComparer());
+            Sort.MGSort(edges, new EdgeCompare());
 
 
             List<Edge> mstEdges = new List<Edge>();
@@ -314,7 +217,7 @@ namespace PlagiarismValidation
             return mstEdges;
         }
 
-        private static bool MakesCycleOrNot(Edge edge, List<Edge> mstEdges, Dictionary<int, int> componentMap)
+        private  bool MakesCycleOrNot(Edge edge, List<Edge> mstEdges, Dictionary<int, int> componentMap)
         {
             int root1 = FindingTheRoot(edge.V1, componentMap);
             int root2 = FindingTheRoot(edge.V2, componentMap);
@@ -324,7 +227,7 @@ namespace PlagiarismValidation
 
 
   
-        private static int FindingTheRoot(int vertex, Dictionary<int, int> componentMap)
+        private  int FindingTheRoot(int vertex, Dictionary<int, int> componentMap)
         {
             if (componentMap[vertex] != vertex)
             {
@@ -335,7 +238,7 @@ namespace PlagiarismValidation
         }
 
 
-        public static (double weight, int similarityLines) GetEdgeWeightAndMatchedLines(int vertex1, int vertex2)
+        public  (double weight, int similarityLines) GetEdgeWeightAndMatchedLines(int vertex1, int vertex2)
         {
             similarityMap.TryGetValue((Math.Min(vertex1, vertex2), Math.Max(vertex1, vertex2)), out var similarityEntry);
 
@@ -348,7 +251,7 @@ namespace PlagiarismValidation
 
 
 
-        private static List<int> GetAllVertices(List<Edge> mstEdges)
+        private  List<int> GetAllVertices(List<Edge> mstEdges)
         {
             HashSet<int> vertices = new HashSet<int>();
 
@@ -360,12 +263,6 @@ namespace PlagiarismValidation
 
             return vertices.ToList();
         }
-
-
-
-
-
-
 
 
 

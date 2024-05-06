@@ -1,8 +1,4 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
+﻿
 
 namespace PlagiarismValidation
 {
@@ -25,20 +21,17 @@ namespace PlagiarismValidation
 
     }
 
-    public class EdgeComparer : IComparer<Edge>
+    public class EdgeCompare : IComparer<Edge>
     {
         public int Compare(Edge x, Edge y)
         {
-            // First, compare by EdgeWeight
-            int weightComparison = x.EdgeWeight.CompareTo(y.EdgeWeight);
-
-            // If weights are equal, compare by the greatest number of matching lines
-            if (weightComparison == 0)
+            int weightComparison_ = x.EdgeWeight.CompareTo(y.EdgeWeight);
+            if (weightComparison_ == 0)
             {
                 return y.MatchLines.CompareTo(x.MatchLines);
             }
 
-            return weightComparison;
+            return weightComparison_;
         }
     }
 
