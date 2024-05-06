@@ -1,62 +1,137 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
 
 namespace PlagiarismValidation
 {
     public class Sort
     {
-
-
-        public static void SortList(List<Edge> edges)
+        public static void MergeSort<T>(List<T> list, Func<T, double> getKey)
         {
-            MergeSort(edges, 0, edges.Count - 1);
+            MergeSort(list, 0, list.Count - 1, getKey);
         }
 
-        private static void MergeSort(List<Edge> edges, int start, int end)
+        private static void MergeSort<T>(List<T> list, int start, int end, Func<T, double> getKey)
         {
             if (start < end)
             {
                 int mid = (start + end) / 2;
-                MergeSort(edges, start, mid);
-                MergeSort(edges, mid + 1, end);
-                Merge(edges, start, mid, end);
+                MergeSort(list, start, mid, getKey);
+                MergeSort(list, mid + 1, end, getKey);
+                Merge(list, start, mid, end, getKey);
             }
         }
 
-
-        private static void Merge(List<Edge> edges, int start, int mid, int end)
+        private static void Merge<T>(List<T> list, int start, int mid, int end, Func<T, double> getKey)
         {
             int n1 = mid - start + 1;
             int n2 = end - mid;
-            List<Edge> leftArray = new List<Edge>(n1 + 1); // Adding 1 extra for infinity
-            List<Edge> rightArray = new List<Edge>(n2 + 1); // Adding 1 extra for infinity
 
-            for (int i = 0; i < n1; i++)
-                leftArray.Add(edges[start + i]);
-            leftArray.Add(new Edge(0, 0, double.PositiveInfinity)); // Infinity
-
-            for (int j = 0; j < n2; j++)
-                rightArray.Add(edges[mid + 1 + j]);
-            rightArray.Add(new Edge(0, 0, double.PositiveInfinity)); // Infinity
+            List<T> leftList = list.GetRange(start, n1);
+            List<T> rightList = list.GetRange(mid + 1, n2);
 
             int leftIndex = 0, rightIndex = 0;
+            int currentIndex = start;
 
-            for (int i = start; i <= end; i++)
+            while (leftIndex < n1 && rightIndex < n2)
             {
-                if (leftArray[leftIndex].Weight <= rightArray[rightIndex].Weight)
+                if (getKey(leftList[leftIndex]) >= getKey(rightList[rightIndex]))
                 {
-                    edges[i] = leftArray[leftIndex++];
+                    list[currentIndex] = leftList[leftIndex];
+                    leftIndex++;
                 }
                 else
                 {
-                    edges[i] = rightArray[rightIndex++];
+                    list[currentIndex] = rightList[rightIndex];
+                    rightIndex++;
                 }
+                currentIndex++;
+            }
+
+            while (leftIndex < n1)
+            {
+                list[currentIndex] = leftList[leftIndex];
+                leftIndex++;
+                currentIndex++;
+            }
+
+            while (rightIndex < n2)
+            {
+                list[currentIndex] = rightList[rightIndex];
+                rightIndex++;
+                currentIndex++;
+            }
+        }
+
+        public static void MergeSort<T>(List<T> list, IComparer<T> comparer)
+        {
+            MergeSort(list, 0, list.Count - 1, comparer);
+        }
+
+        private static void MergeSort<T>(List<T> list, int start, int end, IComparer<T> comparer)
+        {
+            if (start < end)
+            {
+                int mid = (start + end) / 2;
+                MergeSort(list, start, mid, comparer);
+                MergeSort(list, mid + 1, end, comparer);
+                Merge(list, start, mid, end, comparer);
+            }
+        }
+
+        private static void Merge<T>(List<T> list, int start, int mid, int end, IComparer<T> comparer)
+        {
+            int n1 = mid - start + 1;
+            int n2 = end - mid;
+
+            List<T> leftList = list.GetRange(start, n1);
+            List<T> rightList = list.GetRange(mid + 1, n2);
+
+            int leftIndex = 0, rightIndex = 0;
+            int currentIndex = start;
+
+            while (leftIndex < n1 && rightIndex < n2)
+            {
+                if (comparer.Compare(leftList[leftIndex], rightList[rightIndex]) <= 0)
+                {
+                    list[currentIndex] = leftList[leftIndex];
+                    leftIndex++;
+                }
+                else
+                {
+                    list[currentIndex] = rightList[rightIndex];
+                    rightIndex++;
+                }
+                currentIndex++;
+            }
+
+            while (leftIndex < n1)
+            {
+                list[currentIndex] = leftList[leftIndex];
+                leftIndex++;
+                currentIndex++;
+            }
+
+            while (rightIndex < n2)
+            {
+                list[currentIndex] = rightList[rightIndex];
+                rightIndex++;
+                currentIndex++;
             }
         }
 
 
+
+
+
+
+
+
+
+
     }
+
+
+
+
+
 }

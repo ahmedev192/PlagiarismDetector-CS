@@ -8,16 +8,40 @@ namespace PlagiarismValidation
 {
     public class Edge
     {
-        public int Vertex1 { get; set; }  // Endpoint 1
-        public int Vertex2 { get; set; }  // Endpoint 2
-        public double Weight { get; set; }   // Weight or cost associated with the edge
+        public int V1 { get; set; }  
+        public int V2 { get; set; }  
+        public double EdgeWeight { get; set; }   
+        public int MatchLines {  get; set; }
 
-        public Edge(int vertex1, int vertex2, double weight)
+        public Edge(int v1, int v2, double w, int matchedLines)
         {
-            Vertex1 = vertex1;
-            Vertex2 = vertex2;
-            Weight = weight;
+            V1 = v1;
+            V2 = v2;
+            EdgeWeight = w;
+            MatchLines = matchedLines;
         }
 
+
+
     }
+
+    public class EdgeComparer : IComparer<Edge>
+    {
+        public int Compare(Edge x, Edge y)
+        {
+            // First, compare by EdgeWeight
+            int weightComparison = x.EdgeWeight.CompareTo(y.EdgeWeight);
+
+            // If weights are equal, compare by the greatest number of matching lines
+            if (weightComparison == 0)
+            {
+                return y.MatchLines.CompareTo(x.MatchLines);
+            }
+
+            return weightComparison;
+        }
+    }
+
+   
+
 }

@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using System.ComponentModel;
 using System.Data.OleDb;
+using System.Diagnostics;
 using System.Diagnostics.Metrics;
 using System.Linq;
 using System.Text;
@@ -13,75 +14,65 @@ namespace PlagiarismValidation
 {
     public class FileSimilarityAnalyzer
     {
-        public static List<SimilarityEntry> entries;
-        public static Dictionary<(int, int), SimilarityEntry> similarityMap;
+        //Global Variables That We Need To Access Many Times : 
+        public static List<Entry> entries;
+        // <<f1num , f2num>  Entry >
+        public static Dictionary<(int, int), Entry> similarityMap;
+        // <File Number "vertix" , adj list for vertix > 
         public static Dictionary<int, List<int>> adjacencyList = new Dictionary<int, List<int>>();
-        // Method to initialize the similarity map
-        public static void Initialize(List<SimilarityEntry> entries)
+        public static List<Component> groups;
+        public static List<List<Edge>> spanningTree;
+       
+
+
+
+
+        //Reading Files And Related Functions : 
+        //--------------------------------------------------
+        public static List<Entry> ReadFile(string filePath)
         {
-            similarityMap = entries.ToDictionary(entry => (Math.Min(entry.File1Number, entry.File2Number), Math.Max(entry.File1Number, entry.File2Number)));
-        }
+            entries = new List<Entry>();
+            string connection = $"Provider=Microsoft.ACE.OLEDB.12.0;Data Source={filePath};Extended Properties='Excel 12.0;HDR=YES;IMEX=1;'";
 
-
-
-        public static List<SimilarityEntry> ReadSimilarityEntries(string filePath)
-        {
-            entries = new List<SimilarityEntry>();
-
-            string connectionString = $"Provider=Microsoft.ACE.OLEDB.12.0;Data Source={filePath};Extended Properties='Excel 12.0;HDR=YES;IMEX=1;'";
-
-            using (OleDbConnection connection = new OleDbConnection(connectionString))
+            using (OleDbConnection conn = new OleDbConnection(connection))
             {
-                connection.Open();
-                OleDbCommand command = new OleDbCommand("SELECT * FROM [Sheet1$]", connection);
+                conn.Open();
+                OleDbCommand command = new OleDbCommand("select * from [Sheet1$]", conn);
 
-                using (OleDbDataReader reader = command.ExecuteReader())
+                using (OleDbDataReader r = command.ExecuteReader())
                 {
-                    while (reader.Read())
+
+                    while (r.Read())
                     {
-                        SimilarityEntry entry = new SimilarityEntry();
-                        entry.File1Name = reader[0].ToString();
-                        entry.File2Name = reader[1].ToString();
-                        entry.File1Number = GetNumberBeforeLastSlash(entry.File1Name);
-                        entry.File2Number = GetNumberBeforeLastSlash(entry.File2Name);
-                        entry.F1Similarity = ParsePercentage(entry.File1Name); 
-                        entry.F2Similarity = ParsePercentage(entry.File2Name); 
-                        entry.LinesMatched = int.Parse(reader[2].ToString()); 
+                        Entry entry = new Entry();
+                        entry.F1Name = r[0].ToString();
+                        entry.F2Name = r[1].ToString();
+                        entry.F1Num = GetFileNum(entry.F1Name);
+                        entry.F2Num = GetFileNum(entry.F2Name);
+                        entry.F1Sim = TrimPerFromFIleName(entry.F1Name);
+                        entry.F2Sim = TrimPerFromFIleName(entry.F2Name);
+                        entry.SameLines = int.Parse(r[2].ToString());
                         entries.Add(entry);
                     }
                 }
             }
-           Initialize(entries);
+            Initialize(entries);
             return entries;
         }
 
-        // Helper function to parse percentage string to double
-        private static double ParsePercentage(string percentage)
+
+        static int GetFileNum(string input)
         {
-            // Extract the numeric part of the percentage string
-            int startIndex = percentage.LastIndexOf('(') + 1;
-            int length = percentage.LastIndexOf('%') - startIndex;
-            string numericPart = percentage.Substring(startIndex, length);
+            string num = "";
+            int IDX = input.LastIndexOf('/');
 
-            // Convert the numeric part to a double value
-            return double.Parse(numericPart) ;
-        }
-
-
-
-
-        static int GetNumberBeforeLastSlash(string input)
-        {
-            string number = "";
-            int index = input.LastIndexOf('/');
-
-            if (index != -1)
+            if (IDX != -1)
             {
-                for (int i = index - 1; i >= 0; i--)
+                for (int i = IDX - 1; i >= 0; i--)
                 {
                     if (char.IsDigit(input[i]))
                     {
-                        number = input[i] + number;
+                        num = input[i] + num;
                     }
                     else
                     {
@@ -89,92 +80,188 @@ namespace PlagiarismValidation
                     }
                 }
             }
+            return int.Parse(num);
+        }
 
-            return int.Parse( number);
+        private static double TrimPerFromFIleName(string fileName)
+        {
+            int firstDigIDX = fileName.LastIndexOf('(') + 1;
+            int len = fileName.LastIndexOf('%') - firstDigIDX;
+            string sim = fileName.Substring(firstDigIDX, len);
+            return double.Parse(sim);
+        }
+
+
+        //Consider this scenario: you have an entry with F1Num = 3 and F2Num = 7.
+        //If you simply use (entry.F1Num, entry.F2Num) as the key, it's possible that in another entry you have F1Num = 7 and F2Num = 3,
+        //which would result in a different key (7, 3). This could lead to inconsistencies when accessing or updating the dictionary
+        //And Also Our Graph Is Undirected So The Same Edge Shouldn't Appear Twice .
+        public static void Initialize(List<Entry> entries)
+        {
+            similarityMap = new Dictionary<(int, int), Entry>();
+            foreach (var entry in entries)
+            {
+                int smallerNum = Math.Min(entry.F1Num, entry.F2Num);
+                int largerNum = Math.Max(entry.F1Num, entry.F2Num);
+
+                var key = (smallerNum, largerNum);
+
+                similarityMap[key] = entry;
+            }
         }
 
 
 
-        public static List<Component> FindGroups(List<SimilarityEntry> entries)
+        //-----------------------------------------------------------------------------------------------------------------------
+        //-----------------------------------------------------------------------------------------------------------------------
+
+
+        // Constructing Graph Functions.
+        public static List<Component> FindGroups()
         {
-            // Initialize a dictionary to store adjacent nodes for each file
-           
-
-            // Build the adjacency list from similarity entries
-            foreach (var entry in entries)
+            //1. This Part , List All Neighbours For Each Veritx 
+            foreach (var e in entries)
             {
-                // Add file1 to file2's adjacent nodes
-                if (!adjacencyList.ContainsKey(entry.File1Number))
-                    adjacencyList[entry.File1Number] = new List<int>();
-                adjacencyList[entry.File1Number].Add(entry.File2Number);
+                if (!adjacencyList.ContainsKey(e.F1Num))
+                    adjacencyList[e.F1Num] = new List<int>();
+                if (!adjacencyList.ContainsKey(e.F2Num))
+                    adjacencyList[e.F2Num] = new List<int>();
+                adjacencyList[e.F2Num].Add(e.F1Num);
+                adjacencyList[e.F1Num].Add(e.F2Num);
 
-                // Add file2 to file1's adjacent nodes
-                if (!adjacencyList.ContainsKey(entry.File2Number))
-                    adjacencyList[entry.File2Number] = new List<int>();
-                adjacencyList[entry.File2Number].Add(entry.File1Number);
             }
 
-            // Initialize a list to store connected components
-            List<Component> groups = new List<Component>();
-
-            // Initialize a set to keep track of visited nodes
+            List<Component> components = new List<Component>();
             HashSet<int> visited = new HashSet<int>();
 
-            // Perform depth-first search (DFS) to find connected components
-            foreach (var node in adjacencyList.Keys)
+            foreach (var vertix in adjacencyList.Keys)
             {
-                if (!visited.Contains(node))
+                if (!visited.Contains(vertix))
                 {
                     Component component = new Component();
-                    component.Vertices = new List<int>() ;
-                    DFS(node, adjacencyList, visited, component.Vertices);
-                    component.Index = groups.Count + 1; // Set group index
-                    component.Count = component.Vertices.Count; // Set group size
-                    groups.Add(component);
+                    component.Vertices = new List<int>();
+                    DepthSearch(vertix, adjacencyList, visited, component.Vertices);
+                    component.IDX = components.Count + 1;
+                    component.VCount = component.Vertices.Count;
+                    components.Add(component);
                 }
             }
 
-            // Calculate average similarity for each group
-            foreach (var group in groups)
+            foreach (var component in components)
             {
                 double totalSimilarity = 0, counter = 0;
-                foreach (var file1 in group.Vertices)
+                foreach (var file1 in component.Vertices)
                 {
                     foreach (var file2 in adjacencyList[file1])
                     {
-
-                        
-                        // Find the corresponding similarity entry
-                        var similarityEntry = entries.FirstOrDefault(e =>
-                            (e.File1Number == file1 && e.File2Number == file2) ||
-                            (e.File1Number == file2 && e.File2Number == file1));
-                        if (similarityEntry != null)
+                        if (similarityMap.ContainsKey((file1, file2)))
                         {
                             counter++;
-                            totalSimilarity = totalSimilarity+ similarityEntry.F1Similarity+ similarityEntry.F2Similarity;
+                            totalSimilarity += similarityMap[(file1, file2)].F1Sim + similarityMap[(file1, file2)].F2Sim;
+                        }
+                        else if (similarityMap.ContainsKey((file2, file1)))
+                        {
+                            counter++;
+                            totalSimilarity += similarityMap[(file2, file1)].F1Sim + similarityMap[(file2, file1)].F2Sim;
                         }
                     }
                 }
-                group.AverageSimilarity = Math.Round(totalSimilarity / (counter * 2), 1);
+                component.AVGSim = Math.Round(totalSimilarity / (counter * 2), 1);
             }
+            groups = components;
+            return components;
+        }
+
+
+        //2. This Function Takes Each Node And It's Adj , It's Rule Is To Collect All Vertices That Have Relation With Each Others Togetger In a Group And Mark The Visited Vertix;
+        private static void DepthSearch(int startNode, Dictionary<int, List<int>> adjacencyList, HashSet<int> visited, List<int> component)
+        {
+            Stack<int> stack = new Stack<int>();
+            stack.Push(startNode);
+
+            while (stack.Count > 0)
+            {
+                int node = stack.Pop();
+                if (!visited.Contains(node))
+                {
+                    visited.Add(node);
+                    component.Add(node);
+
+                    if (adjacencyList.ContainsKey(node))
+                    {
+                        foreach (var neighbor in adjacencyList[node])
+                        {
+                            if (!visited.Contains(neighbor))
+                            {
+                                stack.Push(neighbor);
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+
+
+        //-----------------------------------------------------------------------------------------------------------------------
+        //-----------------------------------------------------------------------------------------------------------------------
+
+
+        // Refinning And MST.
+
+        public static List<Component> RefineGroups()
+        {
+           spanningTree = new List<List<Edge>>();
+            Sort.MergeSort(groups, component => component.AVGSim);
+
+            foreach (var group in groups)
+            {
+       
+                Dictionary<int, List<int>> adjList = BuildAdjList(group.Vertices);
+                List<Edge> mstEdges = FindMST(adjList);
+                spanningTree.Add(mstEdges);
+
+                List<int> mstVertices = GetAllVertices(mstEdges);
+
+                group.Vertices = mstVertices;
+            }
+            // Assuming you have a List<List<Edge>> spanningTree
+
+            // Define a custom key function to get the negative of the line matches for each edge
+            Func<Edge, double> getKey = edge => edge.MatchLines;
+
+            // Iterate through each list of edges in spanningTree and sort them based on line matches in descending order
+            foreach (var edgesList in spanningTree)
+            {
+                Sort.MergeSort(edgesList, getKey);
+            }
+
+
+            // Assuming you have a List<List<Edge>> spanningTree and a Dictionary<(int, int), Entry> similarityMap, and a file path to save the Excel file
+            string filePath = "path_to_your_excel_file.xlsx";
+            ExcelHelper.WriteSpanningTreeToExcel(spanningTree, similarityMap, "C:\\Users\\ahmed\\OneDrive\\Desktop\\Algo_Project\\PlagiarismValidation\\PlagiarismValidation\\Results\\MST.xlsx");
 
             return groups;
         }
 
-        private static void DFS(int node, Dictionary<int, List<int>> adjacencyList, HashSet<int> visited, List<int> component)
+
+
+
+
+
+        private static Dictionary<int, List<int>> BuildAdjList(List<int> vertices)
         {
-            visited.Add(node);
-            component.Add(node);
-            if (adjacencyList.ContainsKey(node))
+            Dictionary<int, List<int>> adjList = new Dictionary<int, List<int>>();
+            foreach (var vertex in vertices)
             {
-                foreach (var neighbor in adjacencyList[node])
+             
+                if (adjacencyList.TryGetValue(vertex, out List<int> adjacentVertices))
                 {
-                    if (!visited.Contains(neighbor))
-                    {
-                        DFS(neighbor, adjacencyList, visited, component);
-                    }
+                    adjList[vertex] = adjacentVertices;
                 }
             }
+
+            return adjList;
         }
 
 
@@ -187,84 +274,88 @@ namespace PlagiarismValidation
         {
             List<Edge> edges = new List<Edge>();
 
-            // Step 1: Create a list of all edges in the graph
             foreach (var vertex in adjacencyList.Keys)
             {
                 foreach (var neighbor in adjacencyList[vertex])
                 {
-                    double weight = CalculateEdgeWeight(vertex, neighbor); // Calculate edge weight (optional)
-                    edges.Add(new Edge(vertex, neighbor, weight));
+                    var result = GetEdgeWeightAndMatchedLines(vertex, neighbor);
+                    double weight = result.weight;
+                    int matchedlines = result.similarityLines;
+                    edges.Add(new Edge(Math.Min(vertex, neighbor),Math.Max(vertex, neighbor), weight, matchedlines));
                 }
             }
+            Sort.MergeSort(edges, new EdgeComparer());
 
-            // Step 2: Sort the edges by their weights in non-decreasing order
-            Sort.SortList(edges);
 
-            // Step 3: Apply Kruskal's algorithm to find the MST
             List<Edge> mstEdges = new List<Edge>();
-            Dictionary<int, int> componentMap = new Dictionary<int, int>();
+            Dictionary<int, int> componentMapping = new Dictionary<int, int>();
 
             foreach (var vertex in adjacencyList.Keys)
             {
-                componentMap[vertex] = vertex; // Each vertex is initially its own component
+                componentMapping[vertex] = vertex;
             }
 
             foreach (var edge in edges)
             {
-                int root1 = FindRoot(edge.Vertex1, componentMap);
-                int root2 = FindRoot(edge.Vertex2, componentMap);
+                int root1 = FindingTheRoot(edge.V1, componentMapping);
+                int root2 = FindingTheRoot(edge.V2, componentMapping);
 
                 if (root1 != root2)
                 {
-                    mstEdges.Add(edge);
-                    componentMap[root1] = root2; // Union operation by updating component map
+
+                    if (!MakesCycleOrNot(edge, mstEdges, componentMapping))
+                    {
+                        mstEdges.Add(edge);
+                        componentMapping[root1] = root2; 
+                    }
                 }
             }
 
             return mstEdges;
         }
 
-        // Helper method to find the root of a component using path compression
-        private static int FindRoot(int vertex, Dictionary<int, int> componentMap)
+        private static bool MakesCycleOrNot(Edge edge, List<Edge> mstEdges, Dictionary<int, int> componentMap)
+        {
+            int root1 = FindingTheRoot(edge.V1, componentMap);
+            int root2 = FindingTheRoot(edge.V2, componentMap);
+
+            return root1 == root2;
+        }
+
+
+  
+        private static int FindingTheRoot(int vertex, Dictionary<int, int> componentMap)
         {
             if (componentMap[vertex] != vertex)
             {
-                // Path compression: Update the parent of the current vertex
-                componentMap[vertex] = FindRoot(componentMap[vertex], componentMap);
+
+                componentMap[vertex] = FindingTheRoot(componentMap[vertex], componentMap);
             }
             return componentMap[vertex];
         }
 
 
-        public static double CalculateEdgeWeight(int vertex1, int vertex2)
+        public static (double weight, int similarityLines) GetEdgeWeightAndMatchedLines(int vertex1, int vertex2)
         {
+            similarityMap.TryGetValue((Math.Min(vertex1, vertex2), Math.Max(vertex1, vertex2)), out var similarityEntry);
 
+            double weight = Math.Max(similarityEntry.F1Sim, similarityEntry.F2Sim);
+            int similarityLines = similarityEntry.SameLines;
 
-            // Get the similarity entry based on vertex pair
-            if (similarityMap.TryGetValue((Math.Min(vertex1, vertex2), Math.Max(vertex1, vertex2)), out var similarityEntry))
-            {
-                // Return the maximum similarity between F1 and F2
-                return Math.Max(similarityEntry.F1Similarity, similarityEntry.F2Similarity);
-            }
-            else
-            {
-                // If no similarity entry found, return a default value or throw an exception based on your requirement
-                return 0; // Default value
-                          //throw new KeyNotFoundException("Similarity entry not found for the specified vertices.");
-            }
+            return (weight, similarityLines);
         }
 
 
 
-        private static List<int> ExtractMSTVertices(List<Edge> mstEdges)
+
+        private static List<int> GetAllVertices(List<Edge> mstEdges)
         {
             HashSet<int> vertices = new HashSet<int>();
 
-            // Add vertices from MST edges to the set
             foreach (var edge in mstEdges)
             {
-                vertices.Add(edge.Vertex1);
-                vertices.Add(edge.Vertex2);
+                vertices.Add(edge.V1);
+                vertices.Add(edge.V2);
             }
 
             return vertices.ToList();
@@ -279,55 +370,6 @@ namespace PlagiarismValidation
 
 
 
-
-
-        public static List<Component> RefineGroups(List<Component> groups, List<SimilarityEntry> entries)
-        {
-            foreach (var group in groups)
-            {
-                // Step 1: Construct adjacency list for the group
-               Dictionary<int , List<int>> adjacencyList = BuildAdjacencyList(group.Vertices, entries);
-
-                // Step 2: Construct MST for the group
-                List<Edge> mstEdges = FindMST(adjacencyList);
-
-                // Step 3: Extract vertices from MST
-                List<int> mstVertices = ExtractMSTVertices(mstEdges);
-
-                // Update vertices of the group to reflect MST vertices
-                group.Vertices = mstVertices;
-            }
-
-            return groups;
-        }
-
-
-
-
-       
-        private static Dictionary<int, List<int>> BuildAdjacencyList(List<int> vertices, List<SimilarityEntry> entries)
-        {
-            Dictionary<int, List<int>> adjacencyList = new Dictionary<int, List<int>>();
-
-            // Add vertices and their neighbors based on similarity entries
-            foreach (var vertex in vertices)
-            {
-                adjacencyList[vertex] = new List<int>();
-                foreach (var entry in entries)
-                {
-                    if (entry.File1Number == vertex && vertices.Contains(entry.File2Number))
-                    {
-                        adjacencyList[vertex].Add(entry.File2Number);
-                    }
-                    else if (entry.File2Number == vertex && vertices.Contains(entry.File1Number))
-                    {
-                        adjacencyList[vertex].Add(entry.File1Number);
-                    }
-                }
-            }
-
-            return adjacencyList;
-        }
 
 
 
