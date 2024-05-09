@@ -27,10 +27,11 @@ namespace PlagiarismValidation
 
                 using (OleDbDataReader r = command.ExecuteReader())
                 {
-
+                    int counter = 0;
                     while (r.Read())
                     {
                         Entry entry = new Entry();
+                        entry.IDX = counter++;
                         entry.F1Name = r[0].ToString();
                         entry.F2Name = r[1].ToString();
                         entry.F1Num = GetFileNum(entry.F1Name);

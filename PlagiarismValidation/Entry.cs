@@ -4,6 +4,7 @@ namespace PlagiarismValidation
 {
     public class Entry
     {
+        public int IDX { get; set; }
         public string F1Name { get; set; }
 
         public string F2Name { get; set; }

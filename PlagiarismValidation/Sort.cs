@@ -62,6 +62,23 @@ namespace PlagiarismValidation
             }
         }
 
+
+
+
+
+
+
+
+
+//----------------------------------------------------------------------------------------------------------------------------------
+//----------------------------------------------------------------------------------------------------------------------------------
+
+
+
+
+
+
+
         public static void MGSort<T>(List<T> lst, IComparer<T> comparer)
         {
             MGSort(lst, 0, lst.Count - 1, comparer);
@@ -91,10 +108,34 @@ namespace PlagiarismValidation
 
             while (leftIDX < n1 && rightIDX < n2)
             {
-                if (comparer.Compare(leftList[leftIDX], rightList[rightIDX]) <= 0)
+                if (comparer.Compare(leftList[leftIDX], rightList[rightIDX]) > 0) // Changed to >= for descending order
                 {
                     lst[currentIDX] = leftList[leftIDX];
                     leftIDX++;
+                }else if (comparer.Compare(leftList[leftIDX], rightList[rightIDX]) == 0)
+                {
+                    if (typeof(T) == typeof(Edge))
+                    {
+                        int result = GetEntryIndex(leftList[leftIDX] , rightList[rightIDX]);
+                        if (result == 0)
+                        {
+                            lst[currentIDX] = leftList[leftIDX];
+                            leftIDX++;
+                        }
+                        else
+                        {
+                            lst[currentIDX] = rightList[rightIDX];
+                            rightIDX++;
+                        }
+
+                    }
+                    else
+                    {
+                        lst[currentIDX] = leftList[leftIDX];
+                        leftIDX++;
+                    }
+
+
                 }
                 else
                 {
@@ -117,6 +158,20 @@ namespace PlagiarismValidation
                 rightIDX++;
                 currentIDX++;
             }
+        }
+
+
+        private static int GetEntryIndex<T>(T EDG1, T EDG2)
+        {
+            // Assuming entry is of type Edge
+            Edge edge1 = EDG1 as Edge;
+            Edge edge2 = EDG2 as Edge;
+
+            if (GlobalVariables.similarityMap[(edge1.V1, edge1.V2)].IDX > GlobalVariables.similarityMap[(edge2.V1, edge2.V2)].IDX)
+                return 1;
+            else
+                return 0;
+
         }
 
 

@@ -28,9 +28,9 @@ namespace PlagiarismValidation
             int weightComparison_ = x.EdgeWeight.CompareTo(y.EdgeWeight);
             if (weightComparison_ == 0)
             {
-                return y.MatchLines.CompareTo(x.MatchLines);
+               weightComparison_ =  x.MatchLines.CompareTo(y.MatchLines);
             }
-
+            
             return weightComparison_;
         }
     }

@@ -1,13 +1,20 @@
 ﻿
 
+using System.Diagnostics;
+
 namespace PlagiarismValidation
 {
+    public static class GlobalVariables
+    {
+        // <<f1num , f2num>  Entry >
+        public static Dictionary<(int, int), Entry> similarityMap;
+    }
+
     public class FileSimilarityAnalyzer
     {
         //Global Variables That We Need To Access Many Times : 
         public  List<Entry> entries;
-        // <<f1num , f2num>  Entry >
-        public  Dictionary<(int, int), Entry> similarityMap;
+        
         // <File Number "vertix" , adj list for vertix > 
         public  Dictionary<int, List<int>> adjacencyList = new Dictionary<int, List<int>>();
         public  List<Component> groups;
@@ -16,19 +23,26 @@ namespace PlagiarismValidation
         public FileSimilarityAnalyzer(string filePath)
         {
             entries = ExcelHelper.ReadFile(filePath);
-            similarityMap = ExcelHelper.InitializeSimDict(entries);
+            GlobalVariables.similarityMap = ExcelHelper.InitializeSimDict(entries);
+            Stopwatch stopwatch = Stopwatch.StartNew();
+
             FindGroups();
             Sort.MGSort(groups, component => component.AVGSim);
             RefineGroups();
+
             Func<Edge, double> getKey = edge => edge.MatchLines;
             foreach (var edgesList in spanningTree)
             {
                 Sort.MGSort(edgesList, getKey);
             }
+            stopwatch.Stop();
+            TimeSpan elapsedTime = stopwatch.Elapsed;
+            Console.WriteLine($"timeee: {elapsedTime.Hours:00}:{elapsedTime.Minutes:00}:{elapsedTime.Seconds:00}.{elapsedTime.Milliseconds:000}");
+
             string STATPath = "C:\\Users\\ahmed\\OneDrive\\Desktop\\Algo_Project\\PlagiarismValidation\\PlagiarismValidation\\Results\\Stat.xlsx";
             ExcelHelper.ExportStat(groups, STATPath);
             string SavingPath = "C:\\Users\\ahmed\\OneDrive\\Desktop\\Algo_Project\\PlagiarismValidation\\PlagiarismValidation\\Results\\MST.xlsx";
-            ExcelHelper.WriteMySpanningTreeToExcel(spanningTree, similarityMap, SavingPath );
+            ExcelHelper.WriteMySpanningTreeToExcel(spanningTree, GlobalVariables.similarityMap, SavingPath );
 
 
 
@@ -75,15 +89,15 @@ namespace PlagiarismValidation
                 {
                     foreach (var file2 in adjacencyList[file1])
                     {
-                        if (similarityMap.ContainsKey((file1, file2)))
+                        if (GlobalVariables.similarityMap.ContainsKey((file1, file2)))
                         {
                             counter++;
-                            totalSimilarity += similarityMap[(file1, file2)].F1Sim + similarityMap[(file1, file2)].F2Sim;
+                            totalSimilarity += GlobalVariables.similarityMap[(file1, file2)].F1Sim + GlobalVariables.similarityMap[(file1, file2)].F2Sim;
                         }
-                        else if (similarityMap.ContainsKey((file2, file1)))
+                        else if (GlobalVariables.similarityMap.ContainsKey((file2, file1)))
                         {
                             counter++;
-                            totalSimilarity += similarityMap[(file2, file1)].F1Sim + similarityMap[(file2, file1)].F2Sim;
+                            totalSimilarity += GlobalVariables.similarityMap[(file2, file1)].F1Sim + GlobalVariables.similarityMap[(file2, file1)].F2Sim;
                         }
                     }
                 }
@@ -172,10 +186,10 @@ namespace PlagiarismValidation
 
 
 
-
-        private  List<Edge> FindMST(Dictionary<int, List<int>> adjacencyList)
+        private List<Edge> FindMST(Dictionary<int, List<int>> adjacencyList)
         {
             List<Edge> edges = new List<Edge>();
+            HashSet<string> edgeSet = new HashSet<string>();
 
             foreach (var vertex in adjacencyList.Keys)
             {
@@ -184,11 +198,25 @@ namespace PlagiarismValidation
                     var result = GetEdgeWeightAndMatchedLines(vertex, neighbor);
                     double weight = result.weight;
                     int matchedlines = result.similarityLines;
-                    edges.Add(new Edge(Math.Min(vertex, neighbor),Math.Max(vertex, neighbor), weight, matchedlines));
+
+                    // Generate a unique identifier for the edge
+                    string edgeKey = $"{Math.Min(vertex, neighbor)}_{Math.Max(vertex, neighbor)}_{weight}_{matchedlines}";
+
+                    // Check if the edge is already in the set
+                    if (!edgeSet.Contains(edgeKey))
+                    {
+                        // If not, add it to the set and to the list of edges
+                        edgeSet.Add(edgeKey);
+                        edges.Add(new Edge(Math.Min(vertex, neighbor), Math.Max(vertex, neighbor), weight, matchedlines));
+                    }
+                    if(vertex == 12052)
+                    {
+                        Console.WriteLine("XXXXXXXXXX");
+                    }
                 }
             }
-            Sort.MGSort(edges, new EdgeCompare());
 
+            Sort.MGSort(edges, new EdgeCompare());
 
             List<Edge> mstEdges = new List<Edge>();
             Dictionary<int, int> componentMapping = new Dictionary<int, int>();
@@ -205,11 +233,10 @@ namespace PlagiarismValidation
 
                 if (root1 != root2)
                 {
-
                     if (!MakesCycleOrNot(edge, mstEdges, componentMapping))
                     {
                         mstEdges.Add(edge);
-                        componentMapping[root1] = root2; 
+                        componentMapping[root1] = root2;
                     }
                 }
             }
@@ -217,7 +244,8 @@ namespace PlagiarismValidation
             return mstEdges;
         }
 
-        private  bool MakesCycleOrNot(Edge edge, List<Edge> mstEdges, Dictionary<int, int> componentMap)
+
+        private bool MakesCycleOrNot(Edge edge, List<Edge> mstEdges, Dictionary<int, int> componentMap)
         {
             int root1 = FindingTheRoot(edge.V1, componentMap);
             int root2 = FindingTheRoot(edge.V2, componentMap);
@@ -240,7 +268,7 @@ namespace PlagiarismValidation
 
         public  (double weight, int similarityLines) GetEdgeWeightAndMatchedLines(int vertex1, int vertex2)
         {
-            similarityMap.TryGetValue((Math.Min(vertex1, vertex2), Math.Max(vertex1, vertex2)), out var similarityEntry);
+            GlobalVariables.similarityMap.TryGetValue((Math.Min(vertex1, vertex2), Math.Max(vertex1, vertex2)), out var similarityEntry);
 
             double weight = Math.Max(similarityEntry.F1Sim, similarityEntry.F2Sim);
             int similarityLines = similarityEntry.SameLines;
