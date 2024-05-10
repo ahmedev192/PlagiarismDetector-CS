@@ -12,7 +12,7 @@ namespace PlagiarismValidation
         //--------------------------------------------------
         public static List<Entry> ReadFile(string filePath)
         {
-             List<Entry> entries = new List<Entry>();
+            List<Entry> entries = new List<Entry>();
             string connectionSTR = $" Provider=Microsoft.ACE.OLEDB.12.0;Data Source={filePath};Extended Properties='Excel 12.0;HDR=YES;IMEX=1;'";
 
             using (OleDbConnection conn = new OleDbConnection(connectionSTR))
@@ -46,7 +46,6 @@ namespace PlagiarismValidation
 
             return entries;
         }
-
 
         static int GetFileNum(string input)
         {
@@ -146,7 +145,7 @@ namespace PlagiarismValidation
 
 
 
-        public static void WriteMySpanningTreeToExcel(List<List<Edge>> spanningTree, Dictionary<(int, int), Entry> similarityMap, string filePath)
+        public static void WriteMySpanningTreeToExcel(List<List<Edge>> spanningTree,  string filePath)
         {
             using (var workBK = new XLWorkbook())
             {
@@ -161,7 +160,7 @@ namespace PlagiarismValidation
                 {
                     foreach (var edge in edgeList)
                     {
-                        var entry = similarityMap[(edge.V1, edge.V2)];
+                        var entry = GlobalVariables.similarityMap[(edge.V1, edge.V2)];
 
                         sheet.Cell(roww, 1).Value = entry.F1Name;
                         sheet.Cell(roww, 2).Value = entry.F2Name;

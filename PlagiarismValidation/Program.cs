@@ -7,11 +7,11 @@ namespace PlagiarismValidation
     {
         static void Main(string[] args)
         {
-             string inputFile = "C:\\Users\\ahmed\\OneDrive\\Desktop\\Algo_Project\\Test Cases\\Sample\\2-Input.xlsx"; 
-             string inputFile2 = "C:\\Users\\ahmed\\OneDrive\\Desktop\\Algo_Project\\Test Cases\\Complete\\Hard\\2-Input.xlsx"; 
+             string inputFile = "C:\\Users\\ahmed\\OneDrive\\Desktop\\Algo_Project\\Test Cases\\Complete\\Hard\\1-Input.xlsx"; 
+             string inputFile2 = "C:\\Users\\ahmed\\OneDrive\\Desktop\\Algo_Project\\Test Cases\\Complete\\Hard\\1-Input.xlsx"; 
              string inputFile3 = "C:\\Users\\ahmed\\OneDrive\\Desktop\\Algo_Project\\Test Cases\\Complete\\Medium\\1-Input.xlsx"; 
             
-            FileSimilarityAnalyzer f = new FileSimilarityAnalyzer(inputFile2);
+            FileSimilarityAnalyzer f = new FileSimilarityAnalyzer(inputFile);
           
 
 
@@ -21,7 +21,7 @@ namespace PlagiarismValidation
             Dictionary<string, string> file2Data = new Dictionary<string, string>();
 
             // Read data from File 1
-            ReadDataFromFile("C:\\Users\\ahmed\\OneDrive\\Desktop\\Algo_Project\\Test Cases\\Complete\\Hard\\2-mst_file.xlsx", file1Data);
+            ReadDataFromFile("C:\\Users\\ahmed\\OneDrive\\Desktop\\Algo_Project\\Test Cases\\Complete\\Hard\\1-mst_file.xlsx", file1Data);
 
             // Read data from File 2
             ReadDataFromFile("C:\\Users\\ahmed\\OneDrive\\Desktop\\Algo_Project\\PlagiarismValidation\\PlagiarismValidation\\Results\\MST.xlsx", file2Data);
@@ -38,12 +38,6 @@ namespace PlagiarismValidation
             }
 
             Console.WriteLine($"Total columns in File 1 not present in File 2: {counter}");
-
-
-
-
-
-
 
 
         }
