@@ -111,18 +111,15 @@ namespace PlagiarismValidation
 
         public static void ExportStat(List<Component> groups, string filePath)
         {
-
-
-
+            Sort.MGSort(groups, component => component.AVGSim);
 
             foreach (var component in groups)
             {
-
                 Sort.MGSort(component.Vertices, x => -x);
             }
+
             using (var workBK = new XLWorkbook())
             {
-
                 var ws = workBK.Worksheets.Add("Components");
                 ws.Cell(1, 1).Value = "Component Index";
                 ws.Cell(1, 2).Value = "Vertices";
@@ -136,6 +133,9 @@ namespace PlagiarismValidation
                     ws.Cell(row, 2).Value = string.Join(", ", component.Vertices);
                     ws.Cell(row, 3).Value = component.AVGSim;
                     ws.Cell(row, 4).Value = component.VCount;
+
+                    ColWidth(ws, row, component);
+
                     row++;
                 }
 
@@ -143,13 +143,29 @@ namespace PlagiarismValidation
             }
         }
 
+        private static void ColWidth(IXLWorksheet ws, int row, Component component)
+        {
+            for (int col = 1; col <= 4; col++)
+            {
+                int maxLen = 0;
+                for (int r = 1; r <= row; r++)
+                {
+                    var len = ws.Cell(r, col).Value.ToString().Length;
+                    if (len > maxLen)
+                    {
+                        maxLen = len;
+                    }
+                }
+                ws.Column(col).Width = Math.Max(15, maxLen + 2); 
+            }
+        }
 
 
-        public static void WriteMySpanningTreeToExcel(List<List<Edge>> spanningTree,  string filePath)
+        public static void WriteMySpanningTreeToExcel(List<List<Edge>> spanningTree, string filePath)
         {
             using (var workBK = new XLWorkbook())
             {
-                var sheet = workBK.Worksheets.Add("SpanningTree");
+                var sheet = workBK.Worksheets.Add("MST");
 
                 sheet.Cell(1, 1).Value = "File 1";
                 sheet.Cell(1, 2).Value = "File 2";
@@ -169,7 +185,27 @@ namespace PlagiarismValidation
                     }
                 }
 
+                ColWidth(sheet);
+
                 workBK.SaveAs(filePath);
+            }
+        }
+
+        private static void ColWidth(IXLWorksheet ws)
+        {
+            for (int col = 1; col <= 3; col++)
+            {
+                int maxLen = 0;
+                for (int row = 1; row <= ws.RowCount(); row++)
+                {
+                    var contentLen = ws.Cell(row, col).Value.ToString().Length;
+                    if (contentLen > maxLen)
+                    {
+                        maxLen = contentLen;
+                    }
+                }
+
+                ws.Column(col).Width = Math.Max(15, maxLen + 2); 
             }
         }
 

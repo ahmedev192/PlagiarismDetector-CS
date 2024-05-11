@@ -1,5 +1,6 @@
 ﻿
 
+using DocumentFormat.OpenXml.EMMA;
 using System.Diagnostics;
 
 namespace PlagiarismValidation
@@ -22,29 +23,37 @@ namespace PlagiarismValidation
 
         public FileSimilarityAnalyzer(string filePath)
         {
+            Stopwatch TotalTime = Stopwatch.StartNew();
             entries = ExcelHelper.ReadFile(filePath);
             GlobalVariables.similarityMap = ExcelHelper.InitializeSimDict(entries);
-            Stopwatch stopwatch = Stopwatch.StartNew();
-
+            Stopwatch FindGTimer = Stopwatch.StartNew();
             FindGroups();
-            Sort.MGSort(groups, component => component.AVGSim);
+            string STATPath = "C:\\Users\\ahmed\\OneDrive\\Desktop\\Algo_Project\\PlagiarismValidation\\PlagiarismValidation\\Results\\Stat.xlsx";
+            ExcelHelper.ExportStat(groups, STATPath);
+            FindGTimer.Stop();
+            TimeSpan FindGTimerelapsedTime = FindGTimer.Elapsed;
+            Console.WriteLine($"Find Groups And Generating Stat File For This Testcase: {FindGTimerelapsedTime.Hours:00}:{FindGTimerelapsedTime.Minutes:00}:{FindGTimerelapsedTime.Seconds:00}.{FindGTimerelapsedTime.Milliseconds:000}");
+            Stopwatch RefindGTime = Stopwatch.StartNew();
             RefineGroups();
             Func<Edge, double> getKey = edge => edge.MatchLines;
             foreach (var edgesList in spanningTree)
             {
                 Sort.MGSort(edgesList, getKey);
             }
-            string STATPath = "C:\\Users\\ahmed\\OneDrive\\Desktop\\Algo_Project\\PlagiarismValidation\\PlagiarismValidation\\Results\\Stat.xlsx";
-            ExcelHelper.ExportStat(groups, STATPath);
-            string SavingPath = "C:\\Users\\ahmed\\OneDrive\\Desktop\\Algo_Project\\PlagiarismValidation\\PlagiarismValidation\\Results\\MST.xlsx";
+                string SavingPath = "C:\\Users\\ahmed\\OneDrive\\Desktop\\Algo_Project\\PlagiarismValidation\\PlagiarismValidation\\Results\\MST.xlsx";
             ExcelHelper.WriteMySpanningTreeToExcel(spanningTree, SavingPath);
-            stopwatch.Stop();
-            TimeSpan elapsedTime = stopwatch.Elapsed;
-            Console.WriteLine($"timeee: {elapsedTime.Hours:00}:{elapsedTime.Minutes:00}:{elapsedTime.Seconds:00}.{elapsedTime.Milliseconds:000}");
+            RefindGTime.Stop();
+            TimeSpan RefindGTimeelapsedTime = RefindGTime.Elapsed;
+            Console.WriteLine($"MST & MST File For This Testcase: {RefindGTimeelapsedTime.Hours:00}:{RefindGTimeelapsedTime.Minutes:00}:{RefindGTimeelapsedTime.Seconds:00}.{RefindGTimeelapsedTime.Milliseconds:000}");
+            TotalTime.Stop();
+            TimeSpan TotalElapsed = TotalTime.Elapsed;
+            Console.WriteLine($"Total Elapsed Time Including Read All Files From Excel And Write It All : {TotalElapsed.Hours:00}:{TotalElapsed.Minutes:00}:{TotalElapsed.Seconds:00}.{TotalElapsed.Milliseconds:000}");
 
 
 
         }
+
+
 
 
 
@@ -73,7 +82,7 @@ namespace PlagiarismValidation
                 {
                     Component component = new Component();
                     component.Vertices = new List<int>();
-                    DepthSearch(-1, vertix, visited, component);
+                    DepthSearch(vertix, visited, component.Vertices);
                     component.IDX = components.Count + 1;
                     component.VCount = component.Vertices.Count;
                     components.Add(component);
@@ -82,10 +91,24 @@ namespace PlagiarismValidation
 
             foreach (var component in components)
             {
-
-                int edgeCount = component.Vertices.Sum(v => adjacencyList[v].Count);
-
-                component.AVGSim = Math.Round(component.AVGSim / (edgeCount * 2), 1);
+                double totalSimilarity = 0, counter = 0;
+                foreach (var file1 in component.Vertices)
+                {
+                    foreach (var file2 in adjacencyList[file1])
+                    {
+                        if (GlobalVariables.similarityMap.ContainsKey((file1, file2)))
+                        {
+                            counter++;
+                            totalSimilarity += GlobalVariables.similarityMap[(file1, file2)].F1Sim + GlobalVariables.similarityMap[(file1, file2)].F2Sim;
+                        }
+                        else if (GlobalVariables.similarityMap.ContainsKey((file2, file1)))
+                        {
+                            counter++;
+                            totalSimilarity += GlobalVariables.similarityMap[(file2, file1)].F1Sim + GlobalVariables.similarityMap[(file2, file1)].F2Sim;
+                        }
+                    }
+                }
+                component.AVGSim = Math.Round(totalSimilarity / (counter * 2), 1);
             }
             groups = components;
             return components;
@@ -93,27 +116,24 @@ namespace PlagiarismValidation
 
 
         //2. This Function Takes Each Node And It's Adj , It's Rule Is To Collect All Vertices That Have Relation With Each Others Togetger In a Group And Mark The Visited Vertix;
-        private static void DepthSearch(int parent, int node, HashSet<int> visited, Component component)
+        private void DepthSearch(int startNode, HashSet<int> visited, List<int> component)
         {
-            visited.Add(node);
-            component.Vertices.Add(node);
-            if (adjacencyList.ContainsKey(node))
+            visited.Add(startNode);
+            component.Add(startNode);
+
+            if (adjacencyList.ContainsKey(startNode))
             {
-                foreach (var neighbor in adjacencyList[node])
+                foreach (var neighbor in adjacencyList[startNode])
                 {
                     if (!visited.Contains(neighbor))
                     {
-                        if (parent != -1 && GlobalVariables.similarityMap.ContainsKey((parent, neighbor)))
-                        {
-                            component.AVGSim += GlobalVariables.similarityMap[(parent, neighbor)].F1Sim + GlobalVariables.similarityMap[(parent, neighbor)].F2Sim;
-
-
-                        }
-                        DepthSearch(node, neighbor, visited, component);
+                        DepthSearch(neighbor, visited, component);
                     }
                 }
             }
         }
+
+
 
 
 
@@ -178,13 +198,11 @@ namespace PlagiarismValidation
                     double weight = result.weight;
                     int matchedlines = result.similarityLines;
 
-                    // Generate a unique identifier for the edge
+
                     string edgeKey = $"{Math.Min(vertex, neighbor)}_{Math.Max(vertex, neighbor)}_{weight}_{matchedlines}";
 
-                    // Check if the edge is already in the set
                     if (!edgeSet.Contains(edgeKey))
                     {
-                        // If not, add it to the set and to the list of edges
                         edgeSet.Add(edgeKey);
                         edges.Add(new Edge(Math.Min(vertex, neighbor), Math.Max(vertex, neighbor), weight, matchedlines));
                     }
@@ -209,11 +227,10 @@ namespace PlagiarismValidation
 
                 if (root1 != root2)
                 {
-                    if (!MakesCycleOrNot(edge, componentMapping))
-                    {
+                 
                         mstEdges.Add(edge);
                         componentMapping[root1] = root2;
-                    }
+                    
                 }
             }
 
@@ -221,13 +238,6 @@ namespace PlagiarismValidation
         }
 
 
-        private bool MakesCycleOrNot(Edge edge, Dictionary<int, int> componentMap)
-        {
-            int root1 = FindingTheRoot(edge.V1, componentMap);
-            int root2 = FindingTheRoot(edge.V2, componentMap);
-
-            return root1 == root2;
-        }
 
 
 

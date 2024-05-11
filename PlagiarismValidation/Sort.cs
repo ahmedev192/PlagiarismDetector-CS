@@ -1,5 +1,4 @@
 ﻿using System;
-using System.Collections;
 using System.Collections.Generic;
 
 namespace PlagiarismValidation
@@ -13,21 +12,15 @@ namespace PlagiarismValidation
 
         private static void MGSort<T>(List<T> lst, int start, int end, Func<T, double> getKey)
         {
-            Stack<(int, int)> stack = new Stack<(int, int)>();
-            stack.Push((start, end));
-
-            while (stack.Count > 0)
+            if (start < end)
             {
-                (int s, int e) = stack.Pop();
-                if (s < e)
-                {
-                    int mid = (s + e) / 2;
-                    stack.Push((s, mid));
-                    stack.Push((mid + 1, e));
-                    MG(lst, s, mid, e, getKey);
-                }
+                int mid = (start + end) / 2;
+                MGSort(lst, start, mid, getKey);
+                MGSort(lst, mid + 1, end, getKey);
+                MG(lst, start, mid, end, getKey);
             }
         }
+
         private static void MG<T>(List<T> lst, int start, int mid, int end, Func<T, double> getKey)
         {
             int n1 = mid - start + 1;
@@ -39,38 +32,12 @@ namespace PlagiarismValidation
             int leftIDX = 0, rightIDX = 0;
             int currentIDX = start;
 
-            
             while (leftIDX < n1 && rightIDX < n2)
             {
-                if (getKey(leftList[leftIDX]) > getKey(rightList[rightIDX])) // Changed to >= for descending order
+                if (getKey(leftList[leftIDX]) >= getKey(rightList[rightIDX]))
                 {
                     lst[currentIDX] = leftList[leftIDX];
                     leftIDX++;
-                }
-                else if (getKey(leftList[leftIDX]) == getKey(rightList[rightIDX]))
-                {
-                    if (typeof(T) == typeof(Edge))
-                    {
-                        int result = GetEntryIndex(leftList[leftIDX], rightList[rightIDX]);
-                        if (result == 0)
-                        {
-                            lst[currentIDX] = leftList[leftIDX];
-                            leftIDX++;
-                        }
-                        else
-                        {
-                            lst[currentIDX] = rightList[rightIDX];
-                            rightIDX++;
-                        }
-
-                    }
-                    else
-                    {
-                        lst[currentIDX] = leftList[leftIDX];
-                        leftIDX++;
-                    }
-
-
                 }
                 else
                 {
@@ -79,23 +46,6 @@ namespace PlagiarismValidation
                 }
                 currentIDX++;
             }
-        
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
             while (leftIDX < n1)
             {
@@ -120,8 +70,7 @@ namespace PlagiarismValidation
 
 
 
-//----------------------------------------------------------------------------------------------------------------------------------
-//----------------------------------------------------------------------------------------------------------------------------------
+
 
 
 
@@ -162,11 +111,12 @@ namespace PlagiarismValidation
                 {
                     lst[currentIDX] = leftList[leftIDX];
                     leftIDX++;
-                }else if (comparer.Compare(leftList[leftIDX], rightList[rightIDX]) == 0)
+                }
+                else if (comparer.Compare(leftList[leftIDX], rightList[rightIDX]) == 0)
                 {
                     if (typeof(T) == typeof(Edge))
                     {
-                        int result = GetEntryIndex(leftList[leftIDX] , rightList[rightIDX]);
+                        int result = GetEntryIndex(leftList[leftIDX], rightList[rightIDX]);
                         if (result == 0)
                         {
                             lst[currentIDX] = leftList[leftIDX];
@@ -225,6 +175,7 @@ namespace PlagiarismValidation
 
 
     }
+
 
 
 
