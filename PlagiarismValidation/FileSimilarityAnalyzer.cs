@@ -13,6 +13,7 @@ namespace PlagiarismValidation
 
     public class FileSimilarityAnalyzer
     {
+      
         //Global Variables That We Need To Access Many Times : 
         public List<Entry> entries;
 
@@ -20,19 +21,37 @@ namespace PlagiarismValidation
         public static Dictionary<int, List<int>> adjacencyList = new Dictionary<int, List<int>>();
         public List<Component> groups;
         public List<List<Edge>> spanningTree;
+        public static string CaseName = "";
 
-        public FileSimilarityAnalyzer(string filePath)
+        public FileSimilarityAnalyzer(string caseName , string filePath)
         {
             Stopwatch TotalTime = Stopwatch.StartNew();
+            CaseName = caseName;
             entries = ExcelHelper.ReadFile(filePath);
             GlobalVariables.similarityMap = ExcelHelper.InitializeSimDict(entries);
             Stopwatch FindGTimer = Stopwatch.StartNew();
             FindGroups();
-            string STATPath = "C:\\Users\\ahmed\\OneDrive\\Desktop\\Algo_Project\\PlagiarismValidation\\PlagiarismValidation\\Results\\Stat.xlsx";
-            ExcelHelper.ExportStat(groups, STATPath);
+            Sort.MGSort(groups, component => component.AVGSim);
+
+            foreach (var component in groups)
+            {
+                Sort.MGSort(component.Vertices, x => -x);
+            }
+
+
             FindGTimer.Stop();
             TimeSpan FindGTimerelapsedTime = FindGTimer.Elapsed;
-            Console.WriteLine($"Find Groups And Generating Stat File For This Testcase: {FindGTimerelapsedTime.Hours:00}:{FindGTimerelapsedTime.Minutes:00}:{FindGTimerelapsedTime.Seconds:00}.{FindGTimerelapsedTime.Milliseconds:000}");
+            Console.WriteLine($"Total Time Taken In Find Groups And Generating Stat File : {FindGTimerelapsedTime.Hours:00}:{FindGTimerelapsedTime.Minutes:00}:{FindGTimerelapsedTime.Seconds:00}.{FindGTimerelapsedTime.Milliseconds:000}");
+
+            Stopwatch ExportSTATTimer = Stopwatch.StartNew();
+            string STATPath = $"C:\\Users\\ahmed\\OneDrive\\Desktop\\Algo_Project\\PlagiarismValidation\\PlagiarismValidation\\Results\\{CaseName}_Stat.xlsx";
+            ExcelHelper.ExportStat(groups, STATPath);
+            ExportSTATTimer.Stop();
+            TimeSpan ExportSTATElapsed = ExportSTATTimer.Elapsed;
+            Console.WriteLine($"Total Time Taken In Exporting STAT FILE : {ExportSTATElapsed.Hours:00}:{ExportSTATElapsed.Minutes:00}:{ExportSTATElapsed.Seconds:00}.{ExportSTATElapsed.Milliseconds:000}");
+
+
+
             Stopwatch RefindGTime = Stopwatch.StartNew();
             RefineGroups();
             Func<Edge, double> getKey = edge => edge.MatchLines;
@@ -40,19 +59,29 @@ namespace PlagiarismValidation
             {
                 Sort.MGSort(edgesList, getKey);
             }
-                string SavingPath = "C:\\Users\\ahmed\\OneDrive\\Desktop\\Algo_Project\\PlagiarismValidation\\PlagiarismValidation\\Results\\MST.xlsx";
-            ExcelHelper.WriteMySpanningTreeToExcel(spanningTree, SavingPath);
             RefindGTime.Stop();
             TimeSpan RefindGTimeelapsedTime = RefindGTime.Elapsed;
-            Console.WriteLine($"MST & MST File For This Testcase: {RefindGTimeelapsedTime.Hours:00}:{RefindGTimeelapsedTime.Minutes:00}:{RefindGTimeelapsedTime.Seconds:00}.{RefindGTimeelapsedTime.Milliseconds:000}");
+            Console.WriteLine($"Total Time Taken In MST & Generating MST FILE CONTENT: {RefindGTimeelapsedTime.Hours:00}:{RefindGTimeelapsedTime.Minutes:00}:{RefindGTimeelapsedTime.Seconds:00}.{RefindGTimeelapsedTime.Milliseconds:000}");
+
+
+            Stopwatch ExportMSTTimer = Stopwatch.StartNew();
+            string SavingPath = $"C:\\Users\\ahmed\\OneDrive\\Desktop\\Algo_Project\\PlagiarismValidation\\PlagiarismValidation\\Results\\{CaseName}_MST.xlsx";
+            ExcelHelper.WriteMySpanningTreeToExcel(spanningTree, SavingPath);
+            ExportSTATTimer.Stop();
+            TimeSpan ExportMSTElapsed = ExportSTATTimer.Elapsed;
+            Console.WriteLine($"Total Time Taken In Exporting STAT FILE : {ExportMSTElapsed.Hours:00}:{ExportMSTElapsed.Minutes:00}:{ExportMSTElapsed.Seconds:00}.{ExportMSTElapsed.Milliseconds:000}");
+
+
             TotalTime.Stop();
             TimeSpan TotalElapsed = TotalTime.Elapsed;
-            Console.WriteLine($"Total Elapsed Time Including Read All Files From Excel And Write It All : {TotalElapsed.Hours:00}:{TotalElapsed.Minutes:00}:{TotalElapsed.Seconds:00}.{TotalElapsed.Milliseconds:000}");
+            Console.WriteLine($"Full Project Elapsed Time Including Read All Files From Excel And Write It All : {TotalElapsed.Hours:00}:{TotalElapsed.Minutes:00}:{TotalElapsed.Seconds:00}.{TotalElapsed.Milliseconds:000}");
 
 
 
         }
 
+
+        
 
 
 

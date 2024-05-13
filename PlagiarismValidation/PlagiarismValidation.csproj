@@ -9,6 +9,7 @@
 
   <ItemGroup>
     <PackageReference Include="ClosedXML" Version="0.102.2" />
+    <PackageReference Include="EPPlus" Version="7.1.2" />
     <PackageReference Include="System.Data.OleDb" Version="8.0.0" />
   </ItemGroup>
 

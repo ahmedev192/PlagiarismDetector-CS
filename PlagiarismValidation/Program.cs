@@ -7,61 +7,44 @@ namespace PlagiarismValidation
     {
         static void Main(string[] args)
         {
-             string inputFile = "C:\\Users\\ahmed\\OneDrive\\Desktop\\Algo_Project\\Test Cases\\Complete\\Easy\\1-Input.xlsx"; 
-             string inputFile2 = "C:\\Users\\ahmed\\OneDrive\\Desktop\\Algo_Project\\Test Cases\\Complete\\Hard\\1-Input.xlsx"; 
-             string inputFile3 = "C:\\Users\\ahmed\\OneDrive\\Desktop\\Algo_Project\\Test Cases\\Complete\\Medium\\1-Input.xlsx"; 
-            
-            FileSimilarityAnalyzer f = new FileSimilarityAnalyzer(inputFile);
-          
+            string[,] testCases = new string[,]
+      {
+            { "Sample 1", "C:\\Users\\ahmed\\OneDrive\\Desktop\\Algo_Project\\Test Cases\\Sample\\1-Input.xlsx" },
+            { "Sample 2", "C:\\Users\\ahmed\\OneDrive\\Desktop\\Algo_Project\\Test Cases\\Sample\\2-Input.xlsx" },
+            { "Sample 3", "C:\\Users\\ahmed\\OneDrive\\Desktop\\Algo_Project\\Test Cases\\Sample\\3-Input.xlsx" },
+            { "Easy 1", "C:\\Users\\ahmed\\OneDrive\\Desktop\\Algo_Project\\Test Cases\\Complete\\Easy\\1-Input.xlsx" },
+            { "Easy 2", "C:\\Users\\ahmed\\OneDrive\\Desktop\\Algo_Project\\Test Cases\\Complete\\Easy\\2-Input.xlsx" },
+            { "Medium 1", "C:\\Users\\ahmed\\OneDrive\\Desktop\\Algo_Project\\Test Cases\\Complete\\Medium\\1-Input.xlsx" },
+            { "Medium 2", "C:\\Users\\ahmed\\OneDrive\\Desktop\\Algo_Project\\Test Cases\\Complete\\Medium\\2-Input.xlsx" },
+            { "Hard 1", "C:\\Users\\ahmed\\OneDrive\\Desktop\\Algo_Project\\Test Cases\\Complete\\Hard\\1-Input.xlsx" },
+            { "Hard 2", "C:\\Users\\ahmed\\OneDrive\\Desktop\\Algo_Project\\Test Cases\\Complete\\Hard\\2-Input.xlsx" }
+      };
 
 
-
-            // Define dictionaries to store data from both files
-            Dictionary<string, string> file1Data = new Dictionary<string, string>();
-            Dictionary<string, string> file2Data = new Dictionary<string, string>();
-
-            // Read data from File 1
-            ReadDataFromFile("C:\\Users\\ahmed\\OneDrive\\Desktop\\Algo_Project\\Test Cases\\Complete\\Easy\\1-mst_file.xlsx", file1Data);
-
-            // Read data from File 2
-            ReadDataFromFile("C:\\Users\\ahmed\\OneDrive\\Desktop\\Algo_Project\\PlagiarismValidation\\PlagiarismValidation\\Results\\MST.xlsx", file2Data);
-
-            // Find columns exist in only the first file
-            int counter = 0;
-            foreach (var key in file1Data.Keys)
+            for (int i = 0; i < testCases.GetLength(0); i++)
             {
-                if (!file2Data.ContainsKey(key) )
-                {
-                    counter++;
-                    Console.WriteLine($"Column '{key}' exists in File 1 but not in File 2");
-                }
+                string testCaseName = testCases[i, 0];
+                string filepath = testCases[i, 1];
+
+                Console.WriteLine($"Running Test Case: {testCaseName}");
+                FileSimilarityAnalyzer Analyzer = new FileSimilarityAnalyzer(testCaseName, filepath);
+              
+                Console.WriteLine();
+                GlobalVariables.similarityMap = new Dictionary<(int, int), Entry>();
+                FileSimilarityAnalyzer.adjacencyList = new Dictionary<int, List<int>>();
+
             }
 
-            Console.WriteLine($"Total columns in File 1 not present in File 2: {counter}");
-
-
-        }
-
-
-
-
-
-
-        static void ReadDataFromFile(string filePath, Dictionary<string, string> data)
-        {
-            using (var workbook = new XLWorkbook(filePath))
-            {
-                var worksheet = workbook.Worksheet(1); // Assuming data is in the first worksheet
-                var rows = worksheet.RowsUsed();
-
-                foreach (var row in rows)
-                {
-                    string key = row.Cell(1).Value.ToString();
-                    string value = row.Cell(2).Value.ToString();
-                    data.Add(key + value, value);
-                }
-            }
+            Console.WriteLine("All test cases executed.");
         }
 
     }
-    }
+
+
+
+
+
+
+
+
+}

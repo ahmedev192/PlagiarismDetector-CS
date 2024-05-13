@@ -1,7 +1,11 @@
 ﻿using ClosedXML.Excel;
 using System.Data;
 using System.Data.OleDb;
-
+using System.Diagnostics;
+using OfficeOpenXml;
+using System.IO;
+using System.Linq;
+using DocumentFormat.OpenXml.ExtendedProperties;
 
 namespace PlagiarismValidation
 {
@@ -12,37 +16,35 @@ namespace PlagiarismValidation
         //--------------------------------------------------
         public static List<Entry> ReadFile(string filePath)
         {
+            Stopwatch ReadTime = Stopwatch.StartNew();
+
             List<Entry> entries = new List<Entry>();
-            string connectionSTR = $" Provider=Microsoft.ACE.OLEDB.12.0;Data Source={filePath};Extended Properties='Excel 12.0;HDR=YES;IMEX=1;'";
+            ExcelPackage.LicenseContext = LicenseContext.NonCommercial;
 
-            using (OleDbConnection conn = new OleDbConnection(connectionSTR))
+            using (var package = new ExcelPackage(new FileInfo(filePath)))
             {
-                conn.Open();
-                DataTable tbls = conn.GetOleDbSchemaTable(OleDbSchemaGuid.Tables, null);
-                string firstName = tbls.Rows[0]["TABLE_NAME"].ToString();
+                var worksheet = package.Workbook.Worksheets.First();
 
-                string q = $"SELECT * FROM [{firstName}]";
+                int rowCnt = worksheet.Dimension.Rows;
+                int colCnt = worksheet.Dimension.Columns;
 
-                OleDbCommand command = new OleDbCommand(q, conn);
-
-                using (OleDbDataReader r = command.ExecuteReader())
+                for (int row = 2; row <= rowCnt; row++) 
                 {
-                    int counter = 0;
-                    while (r.Read())
-                    {
-                        Entry entry = new Entry();
-                        entry.IDX = counter++;
-                        entry.F1Name = r[0].ToString();
-                        entry.F2Name = r[1].ToString();
-                        entry.F1Num = GetFileNum(entry.F1Name);
-                        entry.F2Num = GetFileNum(entry.F2Name);
-                        entry.F1Sim = TrimPerFromFIleName(entry.F1Name);
-                        entry.F2Sim = TrimPerFromFIleName(entry.F2Name);
-                        entry.SameLines = int.Parse(r[2].ToString());
-                        entries.Add(entry);
-                    }
+                    Entry entry = new Entry();
+                    entry.IDX = row - 1;
+                    entry.F1Name = worksheet.Cells[row, 1].GetValue<string>();
+                    entry.F2Name = worksheet.Cells[row, 2].GetValue<string>();
+                    entry.F1Num = GetFileNum(entry.F1Name);
+                    entry.F2Num = GetFileNum(entry.F2Name);
+                    entry.F1Sim = TrimPerFromFIleName(entry.F1Name);
+                    entry.F2Sim = TrimPerFromFIleName(entry.F2Name);
+                    entry.SameLines = worksheet.Cells[row, 3].GetValue<int>();
+                    entries.Add(entry);
                 }
             }
+            ReadTime.Stop();
+            TimeSpan ElapsedRead = ReadTime.Elapsed;
+            Console.WriteLine($"Total Time Taken In Read Data From Input File : {ElapsedRead.Hours:00}:{ElapsedRead.Minutes:00}:{ElapsedRead.Seconds:00}.{ElapsedRead.Milliseconds:000}");
 
             return entries;
         }
@@ -107,105 +109,94 @@ namespace PlagiarismValidation
 
 
 
+public static void ExportStat(List<Component> groups, string filePath)
+    {
+            ExcelPackage.LicenseContext = LicenseContext.NonCommercial;
 
-
-        public static void ExportStat(List<Component> groups, string filePath)
+            using (var pack = new ExcelPackage())
         {
-            Sort.MGSort(groups, component => component.AVGSim);
+            var ws = pack.Workbook.Worksheets.Add("Components");
 
+            ws.Cells[1, 1].Value = "Component Index";
+            ws.Cells[1, 2].Value = "Vertices";
+            ws.Cells[1, 3].Value = "Average Similarity";
+            ws.Cells[1, 4].Value = "Component Count";
+
+            int row = 2;
             foreach (var component in groups)
             {
-                Sort.MGSort(component.Vertices, x => -x);
-            }
-
-            using (var workBK = new XLWorkbook())
-            {
-                var ws = workBK.Worksheets.Add("Components");
-                ws.Cell(1, 1).Value = "Component Index";
-                ws.Cell(1, 2).Value = "Vertices";
-                ws.Cell(1, 3).Value = "Average Similarity";
-                ws.Cell(1, 4).Value = "Component Count";
-
-                int row = 2;
-                foreach (var component in groups)
-                {
-                    ws.Cell(row, 1).Value = row - 1;
-                    ws.Cell(row, 2).Value = string.Join(", ", component.Vertices);
-                    ws.Cell(row, 3).Value = component.AVGSim;
-                    ws.Cell(row, 4).Value = component.VCount;
-
+                ws.Cells[row, 1].Value = row - 1;
+                ws.Cells[row, 2].Value = string.Join(", ", component.Vertices);
+                ws.Cells[row, 3].Value = component.AVGSim;
+                ws.Cells[row, 4].Value = component.VCount;
                     ColWidth(ws, row, component);
 
-                    row++;
-                }
 
-                workBK.SaveAs(filePath);
+                    row++;
             }
+
+            pack.SaveAs(new FileInfo(filePath));
         }
 
-        private static void ColWidth(IXLWorksheet ws, int row, Component component)
+           }
+
+
+
+
+
+        private static void ColWidth(ExcelWorksheet ws, int rowCount, Component lastComponent)
         {
             for (int col = 1; col <= 4; col++)
             {
                 int maxLen = 0;
-                for (int r = 1; r <= row; r++)
+                for (int row = 1; row <= rowCount; row++)
                 {
-                    var len = ws.Cell(r, col).Value.ToString().Length;
+                    var len = ws.Cells[row, col].Text.Length;
                     if (len > maxLen)
                     {
                         maxLen = len;
                     }
                 }
-                ws.Column(col).Width = Math.Max(15, maxLen + 2); 
+                ws.Column(col).Width = Math.Max(15, maxLen + 2);
             }
         }
 
 
         public static void WriteMySpanningTreeToExcel(List<List<Edge>> spanningTree, string filePath)
         {
-            using (var workBK = new XLWorkbook())
+            using (var package = new ExcelPackage())
             {
-                var sheet = workBK.Worksheets.Add("MST");
+                var sheet = package.Workbook.Worksheets.Add("MST");
 
-                sheet.Cell(1, 1).Value = "File 1";
-                sheet.Cell(1, 2).Value = "File 2";
-                sheet.Cell(1, 3).Value = "Line Matches";
+                sheet.Cells[1, 1].Value = "File 1";
+                sheet.Cells[1, 2].Value = "File 2";
+                sheet.Cells[1, 3].Value = "Line Matches";
 
-                int roww = 2;
+                int row = 2;
                 foreach (var edgeList in spanningTree)
                 {
                     foreach (var edge in edgeList)
                     {
                         var entry = GlobalVariables.similarityMap[(edge.V1, edge.V2)];
 
-                        sheet.Cell(roww, 1).Value = entry.F1Name;
-                        sheet.Cell(roww, 2).Value = entry.F2Name;
-                        sheet.Cell(roww, 3).Value = entry.SameLines;
-                        roww++;
+                        sheet.Cells[row, 1].Value = entry.F1Name;
+                        sheet.Cells[row, 2].Value = entry.F2Name;
+                        sheet.Cells[row, 3].Value = entry.SameLines;
+                        row++;
                     }
                 }
 
                 ColWidth(sheet);
 
-                workBK.SaveAs(filePath);
+                package.SaveAs(new FileInfo(filePath));
             }
         }
 
-        private static void ColWidth(IXLWorksheet ws)
+        private static void ColWidth(ExcelWorksheet ws)
         {
             for (int col = 1; col <= 3; col++)
             {
-                int maxLen = 0;
-                for (int row = 1; row <= ws.RowCount(); row++)
-                {
-                    var contentLen = ws.Cell(row, col).Value.ToString().Length;
-                    if (contentLen > maxLen)
-                    {
-                        maxLen = contentLen;
-                    }
-                }
-
-                ws.Column(col).Width = Math.Max(15, maxLen + 2); 
+                ws.Column(col).AutoFit();
             }
         }
 
