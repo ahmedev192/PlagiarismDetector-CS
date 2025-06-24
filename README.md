@@ -84,7 +84,7 @@ You are a university instructor with multiple student submissions for programmin
 
 ## 👨‍💻 Author
 
-Developed by [Ahmed Mahmoud](https://github.com/ahmedev192) as part of a graduation or research project focused on academic integrity and automation.
+Developed by [Ahmed Mahmoud](https://github.com/ahmedev192) as part of a research project focused on academic integrity and automation.
 
 ---
 
